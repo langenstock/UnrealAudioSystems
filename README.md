@@ -1,5 +1,5 @@
-These are c++ recreations of the audio systems in a project I worked on
-The original systems were entirely blueprints, and these are c++ recreations
+These are C++ recreations of the audio systems in a project I worked on
+The original systems were entirely blueprints, and these are C++ recreations
 
 Note that this is not the entire UE project, this is just the Source folder of code files
 
