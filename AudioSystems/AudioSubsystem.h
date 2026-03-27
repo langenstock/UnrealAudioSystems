@@ -42,7 +42,7 @@ struct FDialogueLine
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue Line",
-		ToolTip="It is not recommended to use MetaSounds for these")
+		meta=(ToolTip="It is not recommended to use MetaSounds for these"))
 	USoundBase* Sound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue Line")
@@ -66,7 +66,7 @@ struct FDialogueLine
 	int TimesPlayed = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue Line",
-		ToolTip="After this line has finished, there can be a time when no line can be played")
+		meta=(ToolTip="After this line has finished, there can be a time when no line can be played"))
 	float Gap = 0.8f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue Line")

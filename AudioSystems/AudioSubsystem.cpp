@@ -238,8 +238,8 @@ bool UAudioSubsystem::IsLineValidAccordingToHistory(const FDialogueLine& Line, f
 			}
 			return false;
 		}
-		if (LineInHistory.MaxtimesCanPlay > 0) { // if this value is -1 there is no limit
-			if (LineInHistory.TimesPlayed >= LineInHistory.MaxtimesCanPlay) {
+		if (LineInHistory.MaxTimesCanPlay > 0) { // if this value is -1 there is no limit
+			if (LineInHistory.TimesPlayed >= LineInHistory.MaxTimesCanPlay) {
 				if (m_DEBUG_DIALOGUE) {
 					FString msg = Line.Sound->GetName();
 					msg += " was not queued (exceeds max times can play)";
@@ -306,8 +306,8 @@ void UAudioSubsystem::QueueDialogueSequence(TArray<FDialogueLine> lines, EQueueT
 			return;		// i.e. dont bother trying to queue any of this sequence
 
 		}
-		else if (LineZeroInHistory->MaxtimesCanPlay > 0) {
-			if (LineZeroInHistory->TimesPlayed >= LineZeroInHistory->MaxtimesCanPlay) {
+		else if (LineZeroInHistory->MaxTimesCanPlay > 0) {
+			if (LineZeroInHistory->TimesPlayed >= LineZeroInHistory->MaxTimesCanPlay) {
 				if (m_DEBUG_DIALOGUE) {
 					FString msg = LineZero.Sound->GetName();
 					msg += " was not queued (max times can play value)";
@@ -321,7 +321,7 @@ void UAudioSubsystem::QueueDialogueSequence(TArray<FDialogueLine> lines, EQueueT
 	float playDelay = LineZero.PlayDelay;
 	bool infCooldown = LineZero.InfiniteCooldown;
 	float cooldown = LineZero.Cooldown;
-	int maxTimesCanPlay = LineZero.MaxtimesCanPlay;
+	int maxTimesCanPlay = LineZero.MaxTimesCanPlay;
 
 	float runningDuration = playDelay + LineZero.Sound->GetDuration();
 
@@ -359,7 +359,7 @@ void UAudioSubsystem::QueueDialogueSequence(TArray<FDialogueLine> lines, EQueueT
 			l.MaxTimeCanBeInQueue = runningDuration;
 		}
 
-		l.MaxtimesCanPlay = maxTimesCanPlay;
+		l.MaxTimesCanPlay = maxTimesCanPlay;
 		l.InfiniteCooldown = infCooldown;
 		l.Cooldown = cooldown;
 		l.isGroup = true;
