@@ -17,14 +17,14 @@
 UENUM(BlueprintType)
 enum class ETag : uint8
 {
-	Market, Gangster, Bibi, Warehouse, BullBoss, Rooftops, Desert
+	Market, Gangster, Bebe, Warehouse, BullBoss, Rooftops, Desert
 };
 
 
 UENUM(BlueprintType)
 enum class ECharacters : uint8
 {
-	NONE, Fang, Maisie, Buster, Lola
+	NONE, CharacterOne, CharacterTwo, CharacterThree, CharacterFour
 };
 
 UENUM(BlueprintType)
@@ -41,7 +41,8 @@ struct FDialogueLine
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue Line")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue Line",
+		ToolTip="It is not recommended to use MetaSounds for these")
 	USoundBase* Sound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue Line")
@@ -60,11 +61,12 @@ struct FDialogueLine
 	bool InfiniteCooldown = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue Line")
-	int MaxtimesCanPlay = -1;
+	int MaxTimesCanPlay = -1;
 
 	int TimesPlayed = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue Line")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue Line",
+		ToolTip="After this line has finished, there can be a time when no line can be played")
 	float Gap = 0.8f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue Line")
@@ -172,4 +174,122 @@ public:
 	UFUNCTION(BlueprintPure, meta = (WorldContext = "WorldContextObject", DisplayName = "Get Audio Subsystem"))
 	static UAudioSubsystem* Get(const UObject* WorldContextObject);
 
+	UFUNCTION(BlueprintCallable)
+	void InitAudioData(TMap<ETag, FMusicTrack> MusicMap,
+		TMap<ETag, F_2DAmbience> AmbienceMap,
+		USoundConcurrency* DialogueConcurrency,
+		USoundAttenuation* DialogueAttenuation);
+
+protected:
+	void ProcessDialogueQueue();
+	void ProcessDialogueDelayQueue(float DeltaTime);
+	void RemoveLineAndItsSequencePartners(int queuePos, bool isGroup, int groupId);
+	void RemoveLineAndPartnersFromDelayQueue(int queuePos, bool isGroup, int groupId);
+	bool IsLineValidAccordingToHistory(const FDialogueLine& Line, float gameTimeNow);
+	void PostQueueTypeAction(EQueueType queueType);
+	void AddLineToLastLineFromCharacterMap(FDialogueLine& Line);
+
+protected:
+	TArray<FDialogueLine> m_DialogueQueue;
+	TArray<FDialogueLine> m_DialogueDelayQueue;
+	TMap<USoundBase*, FDialogueLine> m_DialogueHistory;
+
+	UAudioComponent* m_CurrentlyPlayingDialogue;
+	TMap<ECharacters, FDialogueLine> m_LastLineFromCharacterMap;
+	TMap<ECharacters, float> m_CharacterPreventMap;
+
+	void DebugPrintDxSystem(FString msg, bool cacheMe);
+	void DebugPrintDialogueQueue(bool preventActive);
+	FString m_DebugCachedMsg = "";
+	float m_CachedMsgMaxTime = 1.f;
+	float m_CachedMsgTime = 0.f;
+
+	float m_PreventDialogue = 0.f;
+	float m_DefaultGapBetweenLines = 0.8f;
+
+	int m_NextGroupId = 0;
+
+	/// 
+	/// Music
+	/// 
+
+	FMusicTrack m_CurrentlyPlayingMusic;
+	UFUNCTION(BlueprintCallable)
+	FMusicTrack& GetCurrentlyPlayingMusic();
+	void PlayNewMusic(FMusicTrack Track, USoundBase* LoadedSound);
+	void DebugPrintMusicSystem(FString msg, bool GameTime);
+
+
+	///// Ambience /////
+
+	F_2DAmbience m_CurrentlyPlayingAmbience;
+
+	void ResetTimerForIntermittentAmbienceElements();
+	void AttemptIntermittentAmbSound();
+
+	void PlayNewAmbience(F_2DAmbience ambience, USoundBase* Sound);
+
+	bool m_DEBUG_DIALOGUE = true;
+	bool m_DEBUG_MUSIC = true;
+
+public:
+
+
+	////// DIALOGUE //////
+
+	UFUNCTION(BlueprintCallable)
+	void QueueDialogueLine(FDialogueLine line, EQueueType queueType);
+
+	UFUNCTION(BlueprintCallable)
+	void QueueDialogueSequence(TArray<FDialogueLine> lines, EQueueType queueType);
+
+	UFUNCTION(BlueprintCallable)
+	void SetPreventDialogue(float duration);
+
+	UFUNCTION(BlueprintCallable)
+	void InterruptAndClearQueues();
+
+	UFUNCTION(BlueprintCallable)
+	void ClearQueues();
+
+	UFUNCTION(BlueprintCallable)
+	void InterruptCharacter(ECharacters EChar);
+
+	UFUNCTION(BlueprintCallable)
+	void SetPreventCharacterSpeech(ECharacters EChar, float time);
+
+protected:
+	
+	USoundConcurrency* m_DxConcurrency;
+	USoundAttenuation* m_DxAttenuation;
+	TMap<ETag, FMusicTrack> m_MusicMap;
+
+public:
+
+
+	UFUNCTION(BlueprintCallable)
+	void EvaluateMusicMap(ETag tag);
+
+	UFUNCTION(BlueprintCallable)
+	void ReconcileNewMusic(FMusicTrack musicTrack);
+
+	UFUNCTION(BlueprintCallable)
+	void StopMusic(float fadeTime, EAudioFaderCurve curveType);
+
+protected:
+
+	///// Ambience /////
+	TMap<ETag, F_2DAmbience> m_AmbienceMap;
+
+	UFUNCTION(BlueprintCallable)
+	void EvaluateAmbienceMap(ETag tag);
+
+	UFUNCTION(BlueprintCallable)
+	void LoadNewAmbience(F_2DAmbience ambience);
+
+	UFUNCTION(BlueprintCallable)
+	F_2DAmbience& GetCurrentlyPlayingAmbience();
+
+	UFUNCTION(BlueprintCallable)
+	void StopAllAmbience(float fadeTime, EAudioFaderCurve curve);
 };
