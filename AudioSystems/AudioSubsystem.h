@@ -5,11 +5,15 @@
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Kismet/GameplayStatics.h"
+#include "MetasoundSource.h"
+//#include "Plugins/Runtime/Metasound/Source/MetasoundEngine/Public/MetasoundSource.h"
+//#include "Metasound/Source/MetasoundEngine/Public/MetasoundSource.h"
 #include "Sound/SoundBase.h"
 #include "Components/AudioComponent.h"
 #include "Engine/AssetManager.h"
 #include "Engine/StreamableManager.h" 
 #include "UObject/SoftObjectPath.h"
+#include "Containers/Deque.h"
 #include "AudioSubsystem.generated.h"
 
 
@@ -43,7 +47,7 @@ struct FDialogueLine
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue Line",
 		meta=(ToolTip="It is not recommended to use MetaSounds for these"))
-	USoundBase* Sound;
+	USoundWave* Sound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue Line")
 	ECharacters EChar;
@@ -78,6 +82,10 @@ struct FDialogueLine
 	bool isGroup = false;
 	int groupId;
 	UAudioComponent* instance;
+
+	bool operator==(const FDialogueLine& Other) const {
+		return (Sound == Other.Sound);
+	};
 };
 
 USTRUCT(BlueprintType)
@@ -186,12 +194,13 @@ protected:
 	void RemoveLineAndItsSequencePartners(int queuePos, bool isGroup, int groupId);
 	void RemoveLineAndPartnersFromDelayQueue(int queuePos, bool isGroup, int groupId);
 	bool IsLineValidAccordingToHistory(const FDialogueLine& Line, float gameTimeNow);
-	void PostQueueTypeAction(EQueueType queueType);
+	void PreQueueAction(EQueueType queueType);
 	void AddLineToLastLineFromCharacterMap(FDialogueLine& Line);
 
 protected:
 	TArray<FDialogueLine> m_DialogueQueue;
-	TArray<FDialogueLine> m_DialogueDelayQueue;
+	//TDeque<FDialogueLine> m_DialogueQueue;
+	TArray<FDialogueLine> m_DialogueDelayQueue; // Not necessarily first in first out as it depends on PlayDelay
 	TMap<USoundBase*, FDialogueLine> m_DialogueHistory;
 
 	UAudioComponent* m_CurrentlyPlayingDialogue;

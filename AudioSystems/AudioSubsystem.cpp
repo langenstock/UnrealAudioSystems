@@ -79,24 +79,22 @@ void UAudioSubsystem::AttemptIntermittentAmbSound()
 }
 
 
-
-
 void UAudioSubsystem::ProcessDialogueDelayQueue(float DeltaTime)
 {
 	TArray<int> indicesToMove;
-	size_t j = m_DialogueDelayQueue.Num();
+	TArray<FDialogueLine> linesReadyToMove;
 
-	for (size_t i = 0; i < j; i++) {
-		FDialogueLine& line = m_DialogueDelayQueue[i];
+	for (FDialogueLine& line : m_DialogueDelayQueue) {
 		line.TimeSpentInQueue += DeltaTime;
 		if (line.TimeSpentInQueue > line.PlayDelay) {
-			indicesToMove.Push(i);
+			
+			linesReadyToMove.Push(line);
 		}
 	}
 
-	for (int& i : indicesToMove) {
-		m_DialogueQueue.Push(m_DialogueDelayQueue[i]);
-		m_DialogueDelayQueue.RemoveAt(i);
+	for (FDialogueLine& line : linesReadyToMove) {
+		m_DialogueQueue.Push(line);
+		m_DialogueDelayQueue.Remove(line);
 	}
 }
 
@@ -148,15 +146,22 @@ void UAudioSubsystem::ProcessDialogueQueue()
 	float vol = 1.f;
 	float pitch = 1.f;
 	float time = 0.f; // startTime in wave file
+	USoundWave* Sound = thisLine.Sound;
 
-	// TODO DL this should be more general - allow the sound to have it sown att 
-	// TODO DL to support worldized dialogue in an open world, maybe have a 'dont play if out of range'
-	USoundAttenuation* att = thisLine.AllowReverb ? m_DxAttenuation : nullptr;
+	USoundAttenuation* fallBackAttenuation = thisLine.AllowReverb ? m_DxAttenuation : nullptr;
+	const USoundAttenuation* attSettingsFromSound = Sound->AttenuationSettings;
 
-	USoundBase* Sound = thisLine.Sound;
-	UAudioComponent* LinePlaying = UGameplayStatics::SpawnSoundAtLocation(this, Sound, loc, r, vol,
-		pitch, time, att,
-		m_DxConcurrency);
+	UAudioComponent* LinePlaying;
+	if (attSettingsFromSound) {
+		LinePlaying = UGameplayStatics::SpawnSoundAtLocation(this, Sound, loc, r, vol,
+			pitch, time, nullptr, m_DxConcurrency);
+	}
+	else {
+		LinePlaying = UGameplayStatics::SpawnSoundAtLocation(this, Sound, loc, r, vol,
+			pitch, time, fallBackAttenuation, m_DxConcurrency);
+	}
+
+
 	if (LinePlaying && LinePlaying->IsPlaying()) {
 		m_CurrentlyPlayingDialogue = LinePlaying;
 		thisLine.instance = LinePlaying;
@@ -252,22 +257,22 @@ bool UAudioSubsystem::IsLineValidAccordingToHistory(const FDialogueLine& Line, f
 	return true;
 }
 
-
 void UAudioSubsystem::QueueDialogueLine(FDialogueLine line, EQueueType queueType)
 {
+	PreQueueAction(queueType);
 	line.GameTimeQueued = (float)GetWorld()->GetTimeSeconds();
 	if (line.PlayDelay > 0.f) {
+		if (line.PlayDelay > line.MaxTimeCanBeInQueue) {
+			line.MaxTimeCanBeInQueue = line.PlayDelay + 0.1f;
+		}
 		m_DialogueDelayQueue.Push(line);
 	}
 	else {
 		m_DialogueQueue.Push(line);
 	}
-
-	PostQueueTypeAction(queueType);
 }
 
-
-void UAudioSubsystem::PostQueueTypeAction(EQueueType queueType)
+void UAudioSubsystem::PreQueueAction(EQueueType queueType)
 {
 	switch (queueType) {
 	case(EQueueType::Queue):
@@ -276,7 +281,15 @@ void UAudioSubsystem::PostQueueTypeAction(EQueueType queueType)
 		InterruptAndClearQueues();
 		break;
 	case(EQueueType::QueuePlayNext):
-		ClearQueues();
+		if (m_CurrentlyPlayingDialogue) {
+			USoundBase* sound = m_CurrentlyPlayingDialogue->GetSound();
+			if (sound) {
+				if (!sound->IsA<UMetaSoundSource>()) { // metasounds have indeterminate duration
+					m_PreventDialogue = sound->GetDuration();
+				}
+			}
+		}
+		ClearQueues();  
 		break;
 	case(EQueueType::NONE):
 		break;
@@ -292,6 +305,8 @@ void UAudioSubsystem::AddLineToLastLineFromCharacterMap(FDialogueLine& Line)
 
 void UAudioSubsystem::QueueDialogueSequence(TArray<FDialogueLine> lines, EQueueType queueType)
 {
+	PreQueueAction(queueType);
+
 	// Evaluate validity of line 0
 	FDialogueLine& LineZero = lines[0];
 	FDialogueLine* LineZeroInHistory = m_DialogueHistory.Find(LineZero.Sound);
@@ -366,8 +381,6 @@ void UAudioSubsystem::QueueDialogueSequence(TArray<FDialogueLine> lines, EQueueT
 		l.groupId = thisGroupId;
 		QueueDialogueLine(l, EQueueType::NONE);
 	}
-
-	PostQueueTypeAction(queueType);
 }
 
 void UAudioSubsystem::SetPreventDialogue(float duration)
@@ -384,6 +397,8 @@ void UAudioSubsystem::InterruptAndClearQueues()
 			m_CurrentlyPlayingDialogue->Stop();
 		}
 	}
+
+	m_PreventDialogue = 0.4f;
 
 	if (m_DEBUG_DIALOGUE) {
 		FString msg = "Interrupt and clear queues called";
