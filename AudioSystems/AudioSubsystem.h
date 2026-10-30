@@ -171,34 +171,23 @@ struct F_2DAmbience
 };
 
 USTRUCT(BlueprintType)
-struct FSequenceContainer
+struct FSoundSequenceContainer
 {
 	GENERATED_BODY()
 	UPROPERTY(EditAnywhere)
 	TArray<USoundBase*> sounds;
 };
 
-UENUM(BlueprintType)
-enum class ERandomType : uint8
-{
-	Standard, Shuffle
-};
 
 USTRUCT(BlueprintType)
-struct FRandomContainer
+struct FRandomSoundContainer
 {
 	GENERATED_BODY()
 	UPROPERTY(EditAnywhere)
 	TArray<USoundBase*> sounds;
 
-	//UPROPERTY(EditAnywhere)
-	//ERandomType randomType;
-
 	UPROPERTY(EditAnywhere)
-	bool limitRepetitions;
-
-	//UPROPERTY(EditAnywhere)
-	//int limitRepetitionsTo;
+	bool noRepeat = true;
 };
 
 UCLASS()
@@ -342,13 +331,30 @@ public:
 
 public:
 	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
-	void PlaySoundSequenceContainer2D(UObject* WorldContextObject, FSequenceContainer sounds, float vol = 1.f, float pitch = 1.f);
+	void PlaySoundSequenceContainer2D(UObject* WorldContextObject, FSoundSequenceContainer sounds, float vol = 1.f, float pitch = 1.f);
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	UAudioComponent* SpawnSoundSequenceContainer2D(UObject* WorldContextObject, FSoundSequenceContainer sounds, float vol = 1.f, float pitch = 1.f);
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	void PlaySoundSequenceContainerAtLocation(UObject* WorldContextObject, FSoundSequenceContainer sounds, float vol = 1.f, float pitch = 1.f, FVector location);
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	UAudioComponent* SpawnSoundSequenceContainerAtLocation(UObject* WorldContextObject, FSoundSequenceContainer sounds, float vol = 1.f, float pitch = 1.f, FVector location);
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	// UAudioComponent* UGameplayStatics::SpawnSoundAttached(USoundBase* Sound, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, EAttachLocation::Type LocationType, bool bStopWhenAttachedToDestroyed, float VolumeMultiplier, float PitchMultiplier
+	UAudioComponent* SpawnSoundSequenceContainerAttached(UObject* WorldContextObject, FSoundSequenceContainer sounds, float vol = 1.f, float pitch = 1.f, USceneComponent* attachToComponent, FName attachPointName);
 
 	UFUNCTION(BlueprintCallable)
-	void ResetSequenceContainer(FSequenceContainer sounds);
+	void ResetSequenceContainer(FSoundSequenceContainer sounds);
 
 	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
-	void PlaySoundRandomContainer2D(UObject* WorldContextObject, FRandomContainer sounds, float vol = 1.f, float pitch = 1.f);
+	void PlaySoundRandomContainer2D(UObject* WorldContextObject, FRandomSoundContainer container, float vol = 1.f, float pitch = 1.f);
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	void SpawnSoundRandomContainer2D();
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	void PlaySoundRandomContainerAtLocation();
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	void SpawnSoundRandomContainerAtLocation();
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	void SpawnSoundRandomContainerAttached();
 
 	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
 	void PlaySound2DManaged(UObject* WorldContextObject, USoundBase* sound, float vol = 1.f, float pitch = 1.f, bool safe = false);
@@ -363,7 +369,7 @@ public:
 	void SpawnSoundAtLocationManaged(UObject* WorldContextObject, USoundBase* sound, FVector location, float vol = 1.f, float pitch = 1.f, bool safe = false);
 private:
 
-	USoundBase* SequenceSFXParent(FRandomContainer sounds, float vol = 1.f, float pitch = 1.f);
+	USoundBase* RandomSoundContainerChoose(FRandomSoundContainer sounds);
 
 	TMap<USoundBase*, float> m_SafeSoundHistory;
 	float m_SafeSoundThreshold = 0.02f;
@@ -372,6 +378,7 @@ private:
 	//TArray<FSequenceContainer> m_TrackedSequences; // TODO DL delete if unused
 
 	TMap<USoundBase*, TArray<USoundBase*>> m_SoundRandomContainersTracker;
+	TMap<USoundBase*, USoundBase*> m_SoundRandomContainerLastPlayedMap;
 	TMap<USoundBase*, TArray<USoundBase*>> m_SoundRandomContainersShuffleTracker;
 
 protected:

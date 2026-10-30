@@ -52,4 +52,11 @@ void UAudioFunctionLibrary::SetPreventCharacterSpeech(const UObject* WorldContex
 		audioSys->SetPreventCharacterSpeech(EChar, time);
 }
 
+/// SFX ///
 
+void UAudioFunctionLibrary::PlaySoundSequenceContainer2D(UObject* WorldContextObject, FSoundSequenceContainer sounds, float vol = 1.f, float pitch = 1.f)
+{
+	UAudioSubsystem* audioSys = UAudioSubsystem::Get(WorldContextObject);
+	if (ensure(audioSys))
+		audioSys->PlaySoundSequenceContainer2D(WorldContextObject, sounds, vol, pitch);
+}

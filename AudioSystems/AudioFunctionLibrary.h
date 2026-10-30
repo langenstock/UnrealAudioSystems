@@ -34,4 +34,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
 	static void SetPreventCharacterSpeech(const UObject* WorldContextObject, ECharacters EChar, float time);
+
+	////// SFX /////
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	static void PlaySoundSequenceContainer2D(UObject* WorldContextObject, FSoundSequenceContainer sounds, float vol = 1.f, float pitch = 1.f);
 };

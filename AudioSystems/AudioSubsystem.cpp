@@ -824,10 +824,7 @@ void UAudioSubsystem::DebugPrintMusicSystem(FString msg, bool GameTime)
 	}
 }
 
-
-
-
-void UAudioSubsystem::PlaySoundSequenceContainer2D(UObject* WorldContextObject, FSequenceContainer sounds, float vol, float pitch)
+void UAudioSubsystem::PlaySoundSequenceContainer2D(UObject* WorldContextObject, FSoundSequenceContainer sounds, float vol, float pitch)
 {
 	if (sounds.sounds.Num() == 0) { return; };
 
@@ -847,7 +844,29 @@ void UAudioSubsystem::PlaySoundSequenceContainer2D(UObject* WorldContextObject, 
 	m_SoundSequencesTracker.Add(soundOne, nextIdx);
 }
 
-void UAudioSubsystem::ResetSequenceContainer(FSequenceContainer sounds)
+UAudioComponent* UAudioSubsystem::SpawnSoundSequenceContainer2D(UObject* WorldContextObject, FSoundSequenceContainer sounds, float vol, float pitch)
+{
+	if (sounds.sounds.Num() == 0) { return; };
+
+	int lastIndex = sounds.sounds.Num() - 1;
+
+	USoundBase* soundOne = sounds.sounds[0];
+	int* idx = m_SoundSequencesTracker.Find(soundOne);
+	int thisIndex = idx ? *idx : 0;
+
+	USoundBase* soundToPlay = sounds.sounds[thisIndex];
+	UGameplayStatics::PlaySound2D(WorldContextObject, soundToPlay, vol, pitch);
+	UAudioComponent* audioComp = UGameplayStatics::SpawnSound2D(WorldContextObject, soundToPlay, vol, pitch);
+	int nextIdx = thisIndex + 1;
+	if (nextIdx > lastIndex)
+	{
+		nextIdx = 0;
+	}
+	m_SoundSequencesTracker.Add(soundOne, nextIdx);
+	return audioComp;
+}
+
+void UAudioSubsystem::ResetSequenceContainer(FSoundSequenceContainer sounds)
 {
 	if (sounds.sounds.Num() == 0) { return; };
 
@@ -855,14 +874,14 @@ void UAudioSubsystem::ResetSequenceContainer(FSequenceContainer sounds)
 	m_SoundSequencesTracker.Add(soundOne, 0);
 }
 
-void UAudioSubsystem::PlaySoundRandomContainer2D(UObject* WorldContextObject, FRandomSoundContainer container, float vol, float pitch)
+USoundBase* UAudioSubsystem::RandomSoundContainerChoose(FRandomSoundContainer container)
 {
-	if (container.sounds.IsEmpty()) { return; };
+	if (container.sounds.IsEmpty()) { return nullptr; };
 	USoundBase* soundOne = container.sounds[0];
 
 	int soundsCount = container.sounds.Num();
-	
-	if (soundsCount > 1)
+
+	if (soundsCount > 1 && container.noRepeat)
 	{
 		USoundBase* lastPlayedSound = nullptr;
 		if (m_SoundRandomContainerLastPlayedMap.Find(soundOne))
@@ -872,79 +891,22 @@ void UAudioSubsystem::PlaySoundRandomContainer2D(UObject* WorldContextObject, FR
 		}
 	}
 
-	int idxChosen = FMath::RandRange(0, container.sounds.Num());
-	USoundBase* soundChosen = container.sounds[idxChosen];
+	int idxChosen = FMath::RandRange(0, container.sounds.Num()-1);
+	return container.sounds[idxChosen];
+}
+
+
+void UAudioSubsystem::PlaySoundRandomContainer2D(UObject* WorldContextObject, FRandomSoundContainer container, float vol, float pitch)
+{
+	if (container.sounds.IsEmpty()) { return; };
+	USoundBase* soundOne = container.sounds[0];
+	USoundBase* soundChosen = RandomSoundContainerChoose(container);
 	
-	if (ensure(soundChosen))
+	if (soundChosen)
 	{
 		UGameplayStatics::PlaySound2D(WorldContextObject, soundChosen, vol, pitch);
-		m_SoundRandomContainerLastPlayedMap[soundOne] = soundChosen;
+		m_SoundRandomContainerLastPlayedMap.Add({ soundOne, soundChosen });
 	}
-
-	/*
-	TArray<USoundBase*> validSounds;
-	bool firstTime = false;
-
-	// populate validSounds from the tracker map or make new entry if necessary
-	if (m_SoundRandomContainersTracker.Find(soundOne))
-	{
-		validSounds = m_SoundRandomContainersTracker[soundOne];
-	}
-	else
-	{
-		validSounds = sounds.sounds;
-		firstTime = true;
-		m_SoundRandomContainersTracker.Add({ soundOne, sounds.sounds });
-	}
-
-	// evaluate the shuffle playlist if set to shuffle
-	if (sounds.randomType == ERandomType::Shuffle)
-	{
-		if (m_SoundRandomContainersShuffleTracker.Find(soundOne))
-		{
-			for (int i = validSounds.Num() - 1; i > 0; i--)
-			{
-				USoundBase* soundToEvaluate = validSounds[i];
-				if (m_SoundRandomContainersShuffleTracker[soundOne].Find(soundToEvaluate) != -1)
-				{
-					validSounds.RemoveAt(i);
-				}
-			}
-
-			if (validSounds.IsEmpty())
-			{
-				validSounds = sounds.sounds;
-				m_SoundRandomContainersShuffleTracker[soundOne].Empty();
-			}
-		}
-	}
-
-	// remove last play from validSounds based on limitRepetitions value
-	if (!firstTime && sounds.limitRepetitions)
-	{
-		int limitRep = sounds.limitRepetitionsTo;
-		for (int i = 0; i < limitRep; i++)
-		{
-			validSounds.Pop();
-		}
-	}
-
-	// play random sound from remaining validSounds array
-	int idxChosen = FMath::RandRange(0, validSounds.Num());
-	USoundBase* soundChosen = sounds.sounds[idxChosen];
-	if (ensure(soundChosen))
-	{
-		UGameplayStatics::PlaySound2D(WorldContextObject, soundChosen, vol, pitch);
-		TArray<USoundBase*> containerHistory = m_SoundRandomContainersTracker[soundOne];
-		containerHistory.Remove(soundChosen);
-		containerHistory.Push(soundChosen);
-
-		if (sounds.randomType == ERandomType::Shuffle)
-		{
-			m_SoundRandomContainersShuffleTracker[soundOne].Push(soundChosen);
-		}
-	}
-	*/
 }
 
 void UAudioSubsystem::PlaySound2DManaged(UObject* WorldContextObject, USoundBase* sound, float vol, float pitch, bool safe)
@@ -1053,7 +1015,3 @@ void UAudioSubsystem::SpawnSoundAtLocationManaged(UObject* WorldContextObject, U
 	m_SafeSoundHistory.Add(sound, gt);
 }
 
-USoundBase* UAudioSubsystem::SequenceSFXParent(FRandomContainer sounds, float vol, float pitch)
-{
-	return nullptr;
-}
