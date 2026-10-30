@@ -317,7 +317,7 @@ void UAudioSubsystem::PreQueueAction(EQueueType queueType)
 	case (EQueueType::Queue):
 		break;
 	case (EQueueType::QueuePlayNow):
-		InterruptAndClearQueues();
+		InterruptAndClearQueues(0.f);
 		break;
 	case (EQueueType::QueuePlayNext):
 		if (m_CurrentlyPlayingDialogue)
@@ -325,7 +325,7 @@ void UAudioSubsystem::PreQueueAction(EQueueType queueType)
 			USoundBase *sound = m_CurrentlyPlayingDialogue->GetSound();
 			if (sound)
 			{
-				if (!sound->IsA<UMetaSoundSource>())
+				//if (!sound->IsA<UMetaSoundSource>()) // TODO DL maybe assert that its not a metasound or something?
 				{ // metasounds have indeterminate duration
 					m_PreventDialogue = sound->GetDuration();
 				}
@@ -441,7 +441,7 @@ void UAudioSubsystem::SetPreventDialogue(float duration)
 	m_PreventDialogue = duration;
 }
 
-void UAudioSubsystem::InterruptAndClearQueues()
+void UAudioSubsystem::InterruptAndClearQueues(float fadeTime)
 {
 	ClearQueues();
 
@@ -449,7 +449,9 @@ void UAudioSubsystem::InterruptAndClearQueues()
 	{
 		if (m_CurrentlyPlayingDialogue->IsPlaying())
 		{
-			m_CurrentlyPlayingDialogue->Stop();
+			//m_CurrentlyPlayingDialogue->Stop(); // 
+			// TODO DL verify that a fade of 0.f is the same as stopping?
+			m_CurrentlyPlayingDialogue->FadeOut(fadeTime, 0.f, EAudioFaderCurve::Sin);
 		}
 	}
 
@@ -853,11 +855,33 @@ void UAudioSubsystem::ResetSequenceContainer(FSequenceContainer sounds)
 	m_SoundSequencesTracker.Add(soundOne, 0);
 }
 
-void UAudioSubsystem::PlaySoundRandomContainer2D(UObject* WorldContextObject, FRandomContainer sounds, float vol, float pitch)
+void UAudioSubsystem::PlaySoundRandomContainer2D(UObject* WorldContextObject, FRandomSoundContainer container, float vol, float pitch)
 {
-	USoundBase* soundOne = sounds.sounds[0];
-	if (!soundOne) { return; };
+	if (container.sounds.IsEmpty()) { return; };
+	USoundBase* soundOne = container.sounds[0];
 
+	int soundsCount = container.sounds.Num();
+	
+	if (soundsCount > 1)
+	{
+		USoundBase* lastPlayedSound = nullptr;
+		if (m_SoundRandomContainerLastPlayedMap.Find(soundOne))
+		{
+			lastPlayedSound = m_SoundRandomContainerLastPlayedMap[soundOne];
+			container.sounds.Remove(lastPlayedSound);
+		}
+	}
+
+	int idxChosen = FMath::RandRange(0, container.sounds.Num());
+	USoundBase* soundChosen = container.sounds[idxChosen];
+	
+	if (ensure(soundChosen))
+	{
+		UGameplayStatics::PlaySound2D(WorldContextObject, soundChosen, vol, pitch);
+		m_SoundRandomContainerLastPlayedMap[soundOne] = soundChosen;
+	}
+
+	/*
 	TArray<USoundBase*> validSounds;
 	bool firstTime = false;
 
@@ -920,6 +944,7 @@ void UAudioSubsystem::PlaySoundRandomContainer2D(UObject* WorldContextObject, FR
 			m_SoundRandomContainersShuffleTracker[soundOne].Push(soundChosen);
 		}
 	}
+	*/
 }
 
 void UAudioSubsystem::PlaySound2DManaged(UObject* WorldContextObject, USoundBase* sound, float vol, float pitch, bool safe)

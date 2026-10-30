@@ -24,7 +24,7 @@ public:
 	static void PreventAllDialogue(const UObject* WorldContextObject, float duration);
 
 	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject", ToolTip="Current dialogue will be interrupted", DisplayName="Interrupt and Clear Dialogue Queues"))
-	static void InterruptAndClearQueues(const UObject* WorldContextObject);
+	static void InterruptAndClearQueues(const UObject* WorldContextObject, float fadeTime = 0.3f);
 
 	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject", ToolTip="Current dialogue will finish playing", DisplayName="Clear Dialogue Queues"))
 	static void ClearQueues(const UObject* WorldContextObject);

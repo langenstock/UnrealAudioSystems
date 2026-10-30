@@ -24,11 +24,11 @@ void UAudioFunctionLibrary::PreventAllDialogue(const UObject* WorldContextObject
 		audioSys->SetPreventDialogue(duration);
 }
 
-void UAudioFunctionLibrary::InterruptAndClearQueues(const UObject* WorldContextObject)
+void UAudioFunctionLibrary::InterruptAndClearQueues(const UObject* WorldContextObject, float fadeTime)
 {
 	UAudioSubsystem* audioSys = UAudioSubsystem::Get(WorldContextObject);
 	if (ensure(audioSys))
-		audioSys->InterruptAndClearQueues();
+		audioSys->InterruptAndClearQueues(fadeTime);
 }
 
 void UAudioFunctionLibrary::ClearQueues(const UObject* WorldContextObject)

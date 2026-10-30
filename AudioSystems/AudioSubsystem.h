@@ -8,7 +8,8 @@
 #include "MetasoundSource.h"
 //#include "Plugins/Runtime/Metasound/Source/MetasoundEngine/Public/MetasoundSource.h"
 //#include "Metasound/Source/MetasoundEngine/Public/MetasoundSource.h"
-#include "Runtime/AudioExtensions/AudioParameterControllerInterface.h" // correct?
+//#include "Source/Runtime/AudioExtensions/AudioParameterControllerInterface.h" // correct?
+#include "AudioParameterControllerInterface.h" // correct?
 #include "Sound/SoundBase.h"
 #include "Components/AudioComponent.h"
 #include "Engine/AssetManager.h"
@@ -190,14 +191,14 @@ struct FRandomContainer
 	UPROPERTY(EditAnywhere)
 	TArray<USoundBase*> sounds;
 
-	UPROPERTY(EditAnywhere)
-	ERandomType randomType;
+	//UPROPERTY(EditAnywhere)
+	//ERandomType randomType;
 
 	UPROPERTY(EditAnywhere)
 	bool limitRepetitions;
 
-	UPROPERTY(EditAnywhere)
-	int limitRepetitionsTo;
+	//UPROPERTY(EditAnywhere)
+	//int limitRepetitionsTo;
 };
 
 UCLASS()
@@ -308,7 +309,7 @@ public:
 	void SetPreventDialogue(float duration);
 
 	UFUNCTION(BlueprintCallable)
-	void InterruptAndClearQueues();
+	void InterruptAndClearQueues(float fadeTime);
 
 	UFUNCTION(BlueprintCallable)
 	void ClearQueues();
