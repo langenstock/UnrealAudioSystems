@@ -1,38 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "AudioSubsystem.h"
-
-
-void UAudioSubsystem::Tick(float DeltaTime)
-{
-	if (!GetWorld()) { return; };
-
-	if (m_DialogueQueue.IsEmpty() == false) {
-		if (m_DEBUG_DIALOGUE) {
-			DebugPrintDialogueQueue((m_PreventDialogue > 0.f));
-			if (m_CachedMsgTime > 0.f)
-			{
-				m_CachedMsgTime -= DeltaTime;
-			}
-		}
-		ProcessDialogueQueue();
-	}
-
-	if (m_PreventDialogue > 0.f) {
-		m_PreventDialogue -= DeltaTime;
-	}
-
-	ProcessDialogueDelayQueue(DeltaTime);
-
-	if (m_CurrentlyPlayingAmbience.IntermittentElements) {
-		m_CurrentlyPlayingAmbience.timeUntilNextIntermittent -= DeltaTime;
-		if (m_CurrentlyPlayingAmbience.timeUntilNextIntermittent < 0.f) {
-			AttemptIntermittentAmbSound();
-			ResetTimerForIntermittentAmbienceElements();
-		}
-	}
-}
 
 TStatId UAudioSubsystem::GetStatId() const
 {
@@ -45,11 +13,10 @@ UAudioSubsystem* UAudioSubsystem::Get(const UObject* WorldContextObject)
 	return w->GetGameInstance()->GetSubsystem<UAudioSubsystem>();
 }
 
-
 void UAudioSubsystem::InitAudioData(TMap<ETag, FMusicTrack> MusicMap,
-									TMap<ETag, F_2DAmbience> AmbienceMap,
-									USoundConcurrency* DialogueConcurrency,
-									USoundAttenuation* DialogueAttenuation)
+	TMap<ETag, F_2DAmbience> AmbienceMap,
+	USoundConcurrency* DialogueConcurrency,
+	USoundAttenuation* DialogueAttenuation)
 {
 	m_DxConcurrency = DialogueConcurrency;
 	m_DxAttenuation = DialogueAttenuation;
@@ -58,6 +25,45 @@ void UAudioSubsystem::InitAudioData(TMap<ETag, FMusicTrack> MusicMap,
 	m_DialogueHistory.Empty(200);
 }
 
+void UAudioSubsystem::Tick(float DeltaTime)
+{
+	if (!GetWorld())
+	{
+		return;
+	};
+
+	if (m_DialogueQueue.IsEmpty() == false)
+	{
+		if (m_DEBUG_DIALOGUE)
+		{
+			DebugPrintDialogueQueue((m_PreventDialogue > 0.f));
+			if (m_CachedMsgTime > 0.f)
+			{
+				m_CachedMsgTime -= DeltaTime;
+			}
+		}
+		ProcessDialogueQueue();
+	}
+
+	if (m_PreventDialogue > 0.f)
+	{
+		m_PreventDialogue -= DeltaTime;
+	}
+
+	ProcessDialogueDelayQueue(DeltaTime);
+
+	if (m_CurrentlyPlayingAmbience.IntermittentElements)
+	{
+		m_CurrentlyPlayingAmbience.timeUntilNextIntermittent -= DeltaTime;
+		if (m_CurrentlyPlayingAmbience.timeUntilNextIntermittent < 0.f)
+		{
+			AttemptIntermittentAmbSound();
+			ResetTimerForIntermittentAmbienceElements();
+		}
+	}
+}
+
+
 
 void UAudioSubsystem::ResetTimerForIntermittentAmbienceElements()
 {
@@ -65,34 +71,36 @@ void UAudioSubsystem::ResetTimerForIntermittentAmbienceElements()
 	m_CurrentlyPlayingAmbience.timeUntilNextIntermittent = r;
 }
 
-
 void UAudioSubsystem::AttemptIntermittentAmbSound()
 {
 	// Not a typo - we only play intermittents if there is no dialogue playing
 	if (m_CurrentlyPlayingDialogue && m_CurrentlyPlayingDialogue->IsPlaying())
 		return;
 
-	UAudioComponent* s = UGameplayStatics::SpawnSound2D(GetWorld(), m_CurrentlyPlayingAmbience.LoadedIntElement, 1.f, 1.f);
-	if (s) {
+	UAudioComponent *s = UGameplayStatics::SpawnSound2D(GetWorld(), m_CurrentlyPlayingAmbience.LoadedIntElement, 1.f, 1.f);
+	if (s)
+	{
 		m_CurrentlyPlayingAmbience.intElementsInstance = s;
 	}
 }
-
 
 void UAudioSubsystem::ProcessDialogueDelayQueue(float DeltaTime)
 {
 	TArray<int> indicesToMove;
 	TArray<FDialogueLine> linesReadyToMove;
 
-	for (FDialogueLine& line : m_DialogueDelayQueue) {
+	for (FDialogueLine &line : m_DialogueDelayQueue)
+	{
 		line.TimeSpentInQueue += DeltaTime;
-		if (line.TimeSpentInQueue > line.PlayDelay) {
-			
+		if (line.TimeSpentInQueue > line.PlayDelay)
+		{
+
 			linesReadyToMove.Push(line);
 		}
 	}
 
-	for (FDialogueLine& line : linesReadyToMove) {
+	for (FDialogueLine &line : linesReadyToMove)
+	{
 		m_DialogueQueue.Push(line);
 		m_DialogueDelayQueue.Remove(line);
 	}
@@ -110,15 +118,19 @@ void UAudioSubsystem::ProcessDialogueQueue()
 	int groupId = thisLine.groupId;
 	ECharacters thisLineChar = thisLine.EChar;
 
-	if (IsLineValidAccordingToHistory(thisLine, gameTimeNow) == false) {
+	if (IsLineValidAccordingToHistory(thisLine, gameTimeNow) == false)
+	{
 		RemoveLineAndItsSequencePartners(0, isGroup, groupId);
 		return;
 	}
 
 	// if MaxTime is -1 we ignore this
-	if (thisLine.MaxTimeCanBeInQueue > 0.f) {
-		if (gameTimeNow > (thisLine.GameTimeQueued + thisLine.MaxTimeCanBeInQueue)) {
-			if (m_DEBUG_DIALOGUE) {
+	if (thisLine.MaxTimeCanBeInQueue > 0.f)
+	{
+		if (gameTimeNow > (thisLine.GameTimeQueued + thisLine.MaxTimeCanBeInQueue))
+		{
+			if (m_DEBUG_DIALOGUE)
+			{
 				FString msg = thisLine.Sound->GetName();
 				msg += " was not queued (max time in queue passed)";
 				DebugPrintDxSystem(msg, true);
@@ -128,10 +140,13 @@ void UAudioSubsystem::ProcessDialogueQueue()
 		}
 	}
 
-	if (m_CharacterPreventMap.Find(thisLineChar)) {
+	if (m_CharacterPreventMap.Find(thisLineChar))
+	{
 		// is game time free greater than game time now?
-		if (m_CharacterPreventMap[thisLineChar] > gameTimeNow) {
-			if (m_DEBUG_DIALOGUE) {
+		if (m_CharacterPreventMap[thisLineChar] > gameTimeNow)
+		{
+			if (m_DEBUG_DIALOGUE)
+			{
 				FString msg = thisLine.Sound->GetName();
 				msg += " was not queued (character is still prevented)";
 				DebugPrintDxSystem(msg, true);
@@ -146,23 +161,25 @@ void UAudioSubsystem::ProcessDialogueQueue()
 	float vol = 1.f;
 	float pitch = 1.f;
 	float time = 0.f; // startTime in wave file
-	USoundWave* Sound = thisLine.Sound;
+	USoundWave *Sound = thisLine.Sound;
 
-	USoundAttenuation* fallBackAttenuation = thisLine.AllowReverb ? m_DxAttenuation : nullptr;
-	const USoundAttenuation* attSettingsFromSound = Sound->AttenuationSettings;
+	USoundAttenuation *fallBackAttenuation = thisLine.AllowReverb ? m_DxAttenuation : nullptr;
+	const USoundAttenuation *attSettingsFromSound = Sound->AttenuationSettings;
 
-	UAudioComponent* LinePlaying;
-	if (attSettingsFromSound) {
+	UAudioComponent *LinePlaying;
+	if (attSettingsFromSound)
+	{
 		LinePlaying = UGameplayStatics::SpawnSoundAtLocation(this, Sound, loc, r, vol,
-			pitch, time, nullptr, m_DxConcurrency);
+															 pitch, time, nullptr, m_DxConcurrency);
 	}
-	else {
+	else
+	{
 		LinePlaying = UGameplayStatics::SpawnSoundAtLocation(this, Sound, loc, r, vol,
-			pitch, time, fallBackAttenuation, m_DxConcurrency);
+															 pitch, time, fallBackAttenuation, m_DxConcurrency);
 	}
 
-
-	if (LinePlaying && LinePlaying->IsPlaying()) {
+	if (LinePlaying && LinePlaying->IsPlaying())
+	{
 		m_CurrentlyPlayingDialogue = LinePlaying;
 		thisLine.instance = LinePlaying;
 
@@ -175,8 +192,9 @@ void UAudioSubsystem::ProcessDialogueQueue()
 
 		SetPreventDialogue(lineDuration + gap);
 
-		if (m_DialogueHistory.Find(Sound) == nullptr) {
-			m_DialogueHistory.Add(TTuple<USoundBase*, FDialogueLine>(Sound, thisLine));
+		if (m_DialogueHistory.Find(Sound) == nullptr)
+		{
+			m_DialogueHistory.Add(TTuple<USoundBase *, FDialogueLine>(Sound, thisLine));
 		}
 		m_DialogueHistory[Sound].GameTimePlayed = gameTimeNow;
 		m_DialogueHistory[Sound].TimesPlayed++;
@@ -185,67 +203,84 @@ void UAudioSubsystem::ProcessDialogueQueue()
 	}
 }
 
-
 void UAudioSubsystem::RemoveLineAndItsSequencePartners(int queuePos, bool isGroup, int groupId)
 {
-	if (isGroup) {
+	if (isGroup)
+	{
 		int size = m_DialogueQueue.Num();
-		for (int i = size - 1; i >= 0; i--) {
-			if (m_DialogueQueue[i].groupId == groupId) {
+		for (int i = size - 1; i >= 0; i--)
+		{
+			if (m_DialogueQueue[i].groupId == groupId)
+			{
 				m_DialogueQueue.RemoveAt(i);
 			}
 		}
 
 		size = m_DialogueDelayQueue.Num();
-		for (int i = size - 1; i >= 0; i--) {
-			if (m_DialogueDelayQueue[i].groupId == groupId) {
+		for (int i = size - 1; i >= 0; i--)
+		{
+			if (m_DialogueDelayQueue[i].groupId == groupId)
+			{
 				m_DialogueDelayQueue.RemoveAt(i);
 			}
 		}
 	}
-	else {
+	else
+	{
 		m_DialogueQueue.RemoveAt(queuePos);
 	}
 }
 
 void UAudioSubsystem::RemoveLineAndPartnersFromDelayQueue(int queuePos, bool isGroup, int groupId)
 {
-	if (isGroup) {
+	if (isGroup)
+	{
 		int size = m_DialogueDelayQueue.Num();
-		for (int i = size - 1; i >= 0; i--) {
-			if (m_DialogueDelayQueue[i].groupId == groupId) {
+		for (int i = size - 1; i >= 0; i--)
+		{
+			if (m_DialogueDelayQueue[i].groupId == groupId)
+			{
 				m_DialogueDelayQueue.RemoveAt(i);
 			}
 		}
 	}
-	else {
+	else
+	{
 		m_DialogueDelayQueue.RemoveAt(queuePos);
 	}
 }
 
-bool UAudioSubsystem::IsLineValidAccordingToHistory(const FDialogueLine& Line, float gameTimeNow)
+bool UAudioSubsystem::IsLineValidAccordingToHistory(const FDialogueLine &Line, float gameTimeNow)
 {
-	if (m_DialogueHistory.Find(Line.Sound)) {
-		FDialogueLine& LineInHistory = m_DialogueHistory[Line.Sound];
-		if (LineInHistory.InfiniteCooldown) {
-			if (m_DEBUG_DIALOGUE) {
+	if (m_DialogueHistory.Find(Line.Sound))
+	{
+		FDialogueLine &LineInHistory = m_DialogueHistory[Line.Sound];
+		if (LineInHistory.InfiniteCooldown)
+		{
+			if (m_DEBUG_DIALOGUE)
+			{
 				FString msg = Line.Sound->GetName();
 				msg += " was not queued (infinite cooldown)";
 				DebugPrintDxSystem(msg, true);
 			}
 			return false;
 		}
-		else if (LineInHistory.Cooldown > (gameTimeNow - LineInHistory.GameTimePlayed)) {
-			if (m_DEBUG_DIALOGUE) {
+		else if (LineInHistory.Cooldown > (gameTimeNow - LineInHistory.GameTimePlayed))
+		{
+			if (m_DEBUG_DIALOGUE)
+			{
 				FString msg = Line.Sound->GetName();
 				msg += " was not queued (still on cooldown)";
 				DebugPrintDxSystem(msg, true);
 			}
 			return false;
 		}
-		if (LineInHistory.MaxTimesCanPlay > 0) { // if this value is -1 there is no limit
-			if (LineInHistory.TimesPlayed >= LineInHistory.MaxTimesCanPlay) {
-				if (m_DEBUG_DIALOGUE) {
+		if (LineInHistory.MaxTimesCanPlay > 0)
+		{ // if this value is -1 there is no limit
+			if (LineInHistory.TimesPlayed >= LineInHistory.MaxTimesCanPlay)
+			{
+				if (m_DEBUG_DIALOGUE)
+				{
 					FString msg = Line.Sound->GetName();
 					msg += " was not queued (exceeds max times can play)";
 					DebugPrintDxSystem(msg, true);
@@ -261,69 +296,79 @@ void UAudioSubsystem::QueueDialogueLine(FDialogueLine line, EQueueType queueType
 {
 	PreQueueAction(queueType);
 	line.GameTimeQueued = (float)GetWorld()->GetTimeSeconds();
-	if (line.PlayDelay > 0.f) {
-		if (line.PlayDelay > line.MaxTimeCanBeInQueue) {
+	if (line.PlayDelay > 0.f)
+	{
+		if (line.PlayDelay > line.MaxTimeCanBeInQueue)
+		{
 			line.MaxTimeCanBeInQueue = line.PlayDelay + 0.1f;
 		}
 		m_DialogueDelayQueue.Push(line);
 	}
-	else {
+	else
+	{
 		m_DialogueQueue.Push(line);
 	}
 }
 
 void UAudioSubsystem::PreQueueAction(EQueueType queueType)
 {
-	switch (queueType) {
-	case(EQueueType::Queue):
+	switch (queueType)
+	{
+	case (EQueueType::Queue):
 		break;
-	case(EQueueType::QueuePlayNow):
+	case (EQueueType::QueuePlayNow):
 		InterruptAndClearQueues();
 		break;
-	case(EQueueType::QueuePlayNext):
-		if (m_CurrentlyPlayingDialogue) {
-			USoundBase* sound = m_CurrentlyPlayingDialogue->GetSound();
-			if (sound) {
-				if (!sound->IsA<UMetaSoundSource>()) { // metasounds have indeterminate duration
+	case (EQueueType::QueuePlayNext):
+		if (m_CurrentlyPlayingDialogue)
+		{
+			USoundBase *sound = m_CurrentlyPlayingDialogue->GetSound();
+			if (sound)
+			{
+				if (!sound->IsA<UMetaSoundSource>())
+				{ // metasounds have indeterminate duration
 					m_PreventDialogue = sound->GetDuration();
 				}
 			}
 		}
-		ClearQueues();  
+		ClearQueues();
 		break;
-	case(EQueueType::NONE):
+	case (EQueueType::NONE):
 		break;
 	}
 }
 
-
-void UAudioSubsystem::AddLineToLastLineFromCharacterMap(FDialogueLine& Line)
+void UAudioSubsystem::AddLineToLastLineFromCharacterMap(FDialogueLine &Line)
 {
-	m_LastLineFromCharacterMap.Add({ Line.EChar, Line });
+	m_LastLineFromCharacterMap.Add({Line.EChar, Line});
 }
-
 
 void UAudioSubsystem::QueueDialogueSequence(TArray<FDialogueLine> lines, EQueueType queueType)
 {
 	PreQueueAction(queueType);
 
 	// Evaluate validity of line 0
-	FDialogueLine& LineZero = lines[0];
-	FDialogueLine* LineZeroInHistory = m_DialogueHistory.Find(LineZero.Sound);
+	FDialogueLine &LineZero = lines[0];
+	FDialogueLine *LineZeroInHistory = m_DialogueHistory.Find(LineZero.Sound);
 
-	if (LineZeroInHistory) {
-		if (LineZeroInHistory->InfiniteCooldown == true) {
-			if (m_DEBUG_DIALOGUE) {
+	if (LineZeroInHistory)
+	{
+		if (LineZeroInHistory->InfiniteCooldown == true)
+		{
+			if (m_DEBUG_DIALOGUE)
+			{
 				FString msg = LineZero.Sound->GetName();
 				msg += " was not queued (infinite cooldown)";
 				DebugPrintDxSystem(msg, true);
 			}
-			return;		// i.e. dont bother trying to queue any of this sequence
-
+			return; // i.e. dont bother trying to queue any of this sequence
 		}
-		else if (LineZeroInHistory->MaxTimesCanPlay > 0) {
-			if (LineZeroInHistory->TimesPlayed >= LineZeroInHistory->MaxTimesCanPlay) {
-				if (m_DEBUG_DIALOGUE) {
+		else if (LineZeroInHistory->MaxTimesCanPlay > 0)
+		{
+			if (LineZeroInHistory->TimesPlayed >= LineZeroInHistory->MaxTimesCanPlay)
+			{
+				if (m_DEBUG_DIALOGUE)
+				{
 					FString msg = LineZero.Sound->GetName();
 					msg += " was not queued (max times can play value)";
 					DebugPrintDxSystem(msg, true);
@@ -340,15 +385,20 @@ void UAudioSubsystem::QueueDialogueSequence(TArray<FDialogueLine> lines, EQueueT
 
 	float runningDuration = playDelay + LineZero.Sound->GetDuration();
 
-	if (LineZero.MaxTimeCanBeInQueue < 0.f) {
+	if (LineZero.MaxTimeCanBeInQueue < 0.f)
+	{
 		LineZero.MaxTimeCanBeInQueue = runningDuration;
 		// otherwise subsequent lines could potentially time out leaving line zero behind
 	}
 
-	for (auto& l : lines) {
-		if (m_CharacterPreventMap.Find(l.EChar)) {
-			if (m_CharacterPreventMap[l.EChar] > (GetWorld()->GetTimeSeconds())) {
-				if (m_DEBUG_DIALOGUE) {
+	for (auto &l : lines)
+	{
+		if (m_CharacterPreventMap.Find(l.EChar))
+		{
+			if (m_CharacterPreventMap[l.EChar] > (GetWorld()->GetTimeSeconds()))
+			{
+				if (m_DEBUG_DIALOGUE)
+				{
 					FString msg = LineZero.Sound->GetName();
 					msg += " was not queued (one of the characters in the sequence is on time out (prevented))";
 					DebugPrintDxSystem(msg, true);
@@ -358,7 +408,8 @@ void UAudioSubsystem::QueueDialogueSequence(TArray<FDialogueLine> lines, EQueueT
 			}
 		}
 
-		if (l.Sound != LineZero.Sound) {// not the first line in the sequence
+		if (l.Sound != LineZero.Sound)
+		{ // not the first line in the sequence
 			float thisLineDur = l.Sound->GetDuration();
 			float thisLineGap = (l.Gap <= 0.f) ? m_DefaultGapBetweenLines : l.Gap;
 			l.PlayDelay = playDelay;
@@ -368,9 +419,11 @@ void UAudioSubsystem::QueueDialogueSequence(TArray<FDialogueLine> lines, EQueueT
 
 	int thisGroupId = ++m_NextGroupId;
 
-	for (auto& l : lines) {
+	for (auto &l : lines)
+	{
 		// For line[0] the max time is what is specified, for other lines, it is the calc'd duration of the seq
-		if (l.Sound != LineZero.Sound) {
+		if (l.Sound != LineZero.Sound)
+		{
 			l.MaxTimeCanBeInQueue = runningDuration;
 		}
 
@@ -392,15 +445,18 @@ void UAudioSubsystem::InterruptAndClearQueues()
 {
 	ClearQueues();
 
-	if (m_CurrentlyPlayingDialogue) {
-		if (m_CurrentlyPlayingDialogue->IsPlaying()) {
+	if (m_CurrentlyPlayingDialogue)
+	{
+		if (m_CurrentlyPlayingDialogue->IsPlaying())
+		{
 			m_CurrentlyPlayingDialogue->Stop();
 		}
 	}
 
 	m_PreventDialogue = 0.4f;
 
-	if (m_DEBUG_DIALOGUE) {
+	if (m_DEBUG_DIALOGUE)
+	{
 		FString msg = "Interrupt and clear queues called";
 		DebugPrintDxSystem(msg, true);
 	}
@@ -416,16 +472,20 @@ void UAudioSubsystem::InterruptCharacter(ECharacters EChar)
 {
 	bool origLineIsGroup = false;
 	int origLineGroupId = 0;
-	if (m_LastLineFromCharacterMap.Find(EChar)) {
-		FDialogueLine& lineToStop = m_LastLineFromCharacterMap[EChar];
-		UAudioComponent* sound = lineToStop.instance;
-		if (sound && sound->IsPlaying()) {
-			if (lineToStop.isGroup) {
+	if (m_LastLineFromCharacterMap.Find(EChar))
+	{
+		FDialogueLine &lineToStop = m_LastLineFromCharacterMap[EChar];
+		UAudioComponent *sound = lineToStop.instance;
+		if (sound && sound->IsPlaying())
+		{
+			if (lineToStop.isGroup)
+			{
 				origLineGroupId = lineToStop.groupId;
 				origLineIsGroup = true;
 			}
 			sound->Stop();
-			if (m_DEBUG_DIALOGUE) {
+			if (m_DEBUG_DIALOGUE)
+			{
 				FString msg = lineToStop.Sound->GetName();
 				msg += " was interrupted (interrupt character)";
 				DebugPrintDxSystem(msg, true);
@@ -434,14 +494,19 @@ void UAudioSubsystem::InterruptCharacter(ECharacters EChar)
 	}
 
 	int size = m_DialogueQueue.Num();
-	for (int i = size - 1; i >= 0; i--) {
-		if (m_DialogueQueue.Num() > i) { // because the below functions may also remove elements
-			if (origLineIsGroup) {
-				if (m_DialogueQueue[i].isGroup && m_DialogueQueue[i].groupId == origLineGroupId) {
+	for (int i = size - 1; i >= 0; i--)
+	{
+		if (m_DialogueQueue.Num() > i)
+		{ // because the below functions may also remove elements
+			if (origLineIsGroup)
+			{
+				if (m_DialogueQueue[i].isGroup && m_DialogueQueue[i].groupId == origLineGroupId)
+				{
 					RemoveLineAndItsSequencePartners(i, origLineIsGroup, origLineGroupId);
 				}
 			}
-			else if (m_DialogueQueue[i].EChar == EChar) {
+			else if (m_DialogueQueue[i].EChar == EChar)
+			{
 				bool isGrp = m_DialogueQueue[i].isGroup;
 				int grpId = m_DialogueQueue[i].groupId;
 				RemoveLineAndItsSequencePartners(i, isGrp, grpId);
@@ -450,9 +515,12 @@ void UAudioSubsystem::InterruptCharacter(ECharacters EChar)
 	}
 
 	size = m_DialogueDelayQueue.Num();
-	for (int i = size - 1; i >= 0; i--) {
-		if (m_DialogueDelayQueue.Num() > i) { // because the below functions may also remove elements
-			if (m_DialogueDelayQueue[i].EChar == EChar) {
+	for (int i = size - 1; i >= 0; i--)
+	{
+		if (m_DialogueDelayQueue.Num() > i)
+		{ // because the below functions may also remove elements
+			if (m_DialogueDelayQueue[i].EChar == EChar)
+			{
 				bool isGroup = m_DialogueDelayQueue[i].isGroup;
 				int groupId = m_DialogueDelayQueue[i].groupId;
 				RemoveLineAndPartnersFromDelayQueue(i, isGroup, groupId);
@@ -465,64 +533,73 @@ void UAudioSubsystem::SetPreventCharacterSpeech(ECharacters EChar, float time)
 {
 	float gt = GetWorld()->GetTimeSeconds();
 	float gameTimeWillBeFree = gt + time;
-	m_CharacterPreventMap.Add({ EChar, gameTimeWillBeFree });
+	m_CharacterPreventMap.Add({EChar, gameTimeWillBeFree});
 }
 
-
-FMusicTrack& UAudioSubsystem::GetCurrentlyPlayingMusic()
+FMusicTrack &UAudioSubsystem::GetCurrentlyPlayingMusic()
 {
 	return m_CurrentlyPlayingMusic;
 }
 
-
 void UAudioSubsystem::EvaluateMusicMap(ETag tag)
 {
-	if (m_MusicMap.Find(tag)) {
-		FMusicTrack& musicTrack = m_MusicMap[tag];
+	if (m_MusicMap.Find(tag))
+	{
+		FMusicTrack &musicTrack = m_MusicMap[tag];
 		ReconcileNewMusic(musicTrack);
 	}
+}
+
+void UAudioSubsystem::LoadAndPlayNewMusic(FMusicTrack Track)
+{
+	ReconcileNewMusic(Track); // TODO DL test - not tested
 }
 
 
 void UAudioSubsystem::ReconcileNewMusic(FMusicTrack musicTrack)
 {
-	USoundBase* Sound = nullptr;
+	USoundBase *Sound = nullptr;
 
-	if (musicTrack.SoundHard) {
+	if (musicTrack.SoundHard)
+	{
 		Sound = musicTrack.SoundHard;
-		if (m_DEBUG_MUSIC) {
+		if (m_DEBUG_MUSIC)
+		{
 			FString msg = "Beginning eval of Music: " + Sound->GetName();
 			DebugPrintMusicSystem(msg, true);
 		}
-		// Already loaded sound, just play and have fun
+		// Already loaded, just play and have fun
 		PlayNewMusic(musicTrack, Sound);
 	}
-	else if (musicTrack.SoundSoft.IsNull() == false) {
-		if (m_DEBUG_MUSIC) {
+	else if (!musicTrack.SoundSoft.IsNull())
+	{
+		if (m_DEBUG_MUSIC)
+		{
 			FString msg = "About to load Music: " + musicTrack.SoundSoft->GetPathName();
 			DebugPrintMusicSystem(msg, true);
 		}
 		FSoftObjectPath path = musicTrack.SoundSoft.ToSoftObjectPath();
 
-		FStreamableManager& Streamable = UAssetManager::GetStreamableManager();
+		FStreamableManager &Streamable = UAssetManager::GetStreamableManager();
 
 		Streamable.RequestAsyncLoad(
 			path,
-			FStreamableDelegate::CreateLambda([this, musicTrack]() {
+			FStreamableDelegate::CreateLambda([this, musicTrack]()
+											  {
 				if (!musicTrack.SoundSoft.IsNull()) {
 					this->PlayNewMusic(musicTrack, musicTrack.SoundSoft.Get());
-				}
-				})
-		);
+				} }));
 	}
 }
 
-
-void UAudioSubsystem::PlayNewMusic(FMusicTrack Track, USoundBase* LoadedSound)
+void UAudioSubsystem::PlayNewMusic(FMusicTrack Track, USoundBase *LoadedSound)
 {
-	if (ensure(LoadedSound)) {
-		if (m_CurrentlyPlayingMusic.SoundHard != LoadedSound) {
-			if (m_CurrentlyPlayingMusic.instance) {
+	if (ensure(LoadedSound))
+	{
+		if (m_CurrentlyPlayingMusic.SoundHard != LoadedSound)
+		{
+			if (m_CurrentlyPlayingMusic.instance)
+			{
 				float fadeTime = m_CurrentlyPlayingMusic.PreviousTrackFadeOut;
 				EAudioFaderCurve outCurve = m_CurrentlyPlayingMusic.FadeOutType;
 				m_CurrentlyPlayingMusic.instance->FadeOut(fadeTime, 0.f, outCurve);
@@ -532,22 +609,26 @@ void UAudioSubsystem::PlayNewMusic(FMusicTrack Track, USoundBase* LoadedSound)
 			EAudioFaderCurve curve = Track.FadeInType;
 			float vol = Track.Volume;
 
-			UAudioComponent* instance = UGameplayStatics::CreateSound2D(GetWorld(), LoadedSound);
+			UAudioComponent *instance = UGameplayStatics::CreateSound2D(GetWorld(), LoadedSound);
 			instance->FadeIn(fadeInTime, vol, 0.f, curve);
 
 			m_CurrentlyPlayingMusic = Track;
 			m_CurrentlyPlayingMusic.instance = instance;
-			if (m_CurrentlyPlayingMusic.SoundHard == nullptr) {
+			if (m_CurrentlyPlayingMusic.SoundHard == nullptr)
+			{
 				m_CurrentlyPlayingMusic.SoundHard = LoadedSound;
 			}
 
-			if (m_DEBUG_MUSIC) {
+			if (m_DEBUG_MUSIC)
+			{
 				FString msg = "Played Music: " + LoadedSound->GetName();
 				DebugPrintMusicSystem(msg, true);
 			}
 		}
-		else {
-			if (m_DEBUG_MUSIC) {
+		else
+		{
+			if (m_DEBUG_MUSIC)
+			{
 				FString msg = LoadedSound->GetName() + " was already playing";
 				DebugPrintMusicSystem(msg, true);
 			}
@@ -555,83 +636,107 @@ void UAudioSubsystem::PlayNewMusic(FMusicTrack Track, USoundBase* LoadedSound)
 	}
 }
 
-
 void UAudioSubsystem::StopMusic(float fadeTime, EAudioFaderCurve curveType)
 {
-	UAudioComponent* instance = m_CurrentlyPlayingMusic.instance;
-	if (instance && instance->IsPlaying()) {
+	UAudioComponent *instance = m_CurrentlyPlayingMusic.instance;
+	if (instance && instance->IsPlaying())
+	{
 		instance->FadeOut(fadeTime, 0.f, curveType);
 	}
 
 	m_CurrentlyPlayingMusic.SoundHard = nullptr;
 
-	if (m_DEBUG_MUSIC) {
+	if (m_DEBUG_MUSIC)
+	{
 		FString msg = "Music Stopped";
 		DebugPrintMusicSystem(msg, true);
 	}
 }
 
+void UAudioSubsystem::CurrentMusicTriggerParameter(FString parameter)
+{
+	UAudioComponent* instance = m_CurrentlyPlayingMusic.instance;
+	if (instance && instance->IsPlaying())
+	{
+		//instance->ExecuteTrigger // TODO DL
+	}
+}
+
+void UAudioSubsystem::CurrentMusicTriggerFloatParameter(FString parameter, float value)
+{
+	UAudioComponent* instance = m_CurrentlyPlayingMusic.instance;
+	if (instance && instance->IsPlaying())
+	{
+		//instance->ExecuteTrigger // TODO DL
+	}
+}
+
 void UAudioSubsystem::EvaluateAmbienceMap(ETag tag)
 {
-	if (m_AmbienceMap.Find(tag)) {
+	if (m_AmbienceMap.Find(tag))
+	{
 		LoadNewAmbience(m_AmbienceMap[tag]);
 	}
 }
 
 void UAudioSubsystem::LoadNewAmbience(F_2DAmbience ambience)
 {
-	if (m_CurrentlyPlayingAmbience.Sound == ambience.Sound) {
+	if (m_CurrentlyPlayingAmbience.Sound == ambience.Sound)
+	{
 		return;
 	}
 
-	if (ambience.Sound.IsNull()) {
+	if (ambience.Sound.IsNull())
+	{
 		return;
 	}
 
-	USoundBase* SoundToPlay = nullptr;
+	USoundBase *SoundToPlay = nullptr;
 	FSoftObjectPath path = ambience.Sound.ToSoftObjectPath();
 
-	FStreamableManager& StreamManager = UAssetManager::GetStreamableManager();
+	FStreamableManager &StreamManager = UAssetManager::GetStreamableManager();
 	StreamManager.RequestAsyncLoad(
 		path,
-		FStreamableDelegate::CreateLambda([this, ambience]() {
+		FStreamableDelegate::CreateLambda([this, ambience]()
+										  {
 			if (ambience.Sound.IsValid()) {
 				this->PlayNewAmbience(ambience, ambience.Sound.Get());
-			}
-			})
-	);
+			} }));
 
-	if (ambience.IntermittentElements) {
+	if (ambience.IntermittentElements)
+	{
 		// Intermittent Elements are optional and might be left blank
 		FSoftObjectPath intElementsPath = ambience.IntermittentElements.ToSoftObjectPath();
 
 		StreamManager.RequestAsyncLoad(
 			intElementsPath,
-			FStreamableDelegate::CreateLambda([this, &ambience]() {
+			FStreamableDelegate::CreateLambda([this, &ambience]()
+											  {
 				if (!ambience.IntermittentElements.IsNull()) {
 					ambience.LoadedIntElement = ambience.IntermittentElements.Get();
 					this->ResetTimerForIntermittentAmbienceElements();
-				}
-				})
-		);
+				} }));
 	}
 }
 
-void UAudioSubsystem::PlayNewAmbience(F_2DAmbience ambience, USoundBase* Sound)
+void UAudioSubsystem::PlayNewAmbience(F_2DAmbience ambience, USoundBase *Sound)
 {
-	if (m_CurrentlyPlayingAmbience.instance) {
+	if (m_CurrentlyPlayingAmbience.instance)
+	{
 		float fadeOutTime = m_CurrentlyPlayingAmbience.FadeOutTime;
 		EAudioFaderCurve curve = m_CurrentlyPlayingAmbience.FadeOutType;
 		m_CurrentlyPlayingAmbience.instance->FadeOut(fadeOutTime, 0.f, curve);
 	}
 
-	if (ensure(Sound)) {
+	if (ensure(Sound))
+	{
 		float fadeIn = ambience.FadeInTime;
 		EAudioFaderCurve curve = ambience.FadeInType;
 		float vol = ambience.Volume;
 
-		UAudioComponent* instance = UGameplayStatics::CreateSound2D(GetWorld(), Sound, vol, 1.f, 0.f);
-		if (instance) {
+		UAudioComponent *instance = UGameplayStatics::CreateSound2D(GetWorld(), Sound, vol, 1.f, 0.f);
+		if (instance)
+		{
 			instance->FadeIn(fadeIn, vol, 0.f, curve);
 			m_CurrentlyPlayingAmbience = ambience;
 			m_CurrentlyPlayingAmbience.instance = instance;
@@ -639,15 +744,17 @@ void UAudioSubsystem::PlayNewAmbience(F_2DAmbience ambience, USoundBase* Sound)
 	}
 }
 
-F_2DAmbience& UAudioSubsystem::GetCurrentlyPlayingAmbience()
+F_2DAmbience &UAudioSubsystem::GetCurrentlyPlayingAmbience()
 {
 	return m_CurrentlyPlayingAmbience;
 }
 
 void UAudioSubsystem::StopAllAmbience(float fadeTime, EAudioFaderCurve curve)
 {
-	if (m_CurrentlyPlayingAmbience.instance) {
-		if (m_CurrentlyPlayingAmbience.instance->IsPlaying()) {
+	if (m_CurrentlyPlayingAmbience.instance)
+	{
+		if (m_CurrentlyPlayingAmbience.instance->IsPlaying())
+		{
 			m_CurrentlyPlayingAmbience.instance->FadeOut(fadeTime, 0.f, curve);
 		}
 	}
@@ -660,16 +767,17 @@ void UAudioSubsystem::StopAllAmbience(float fadeTime, EAudioFaderCurve curve)
 void UAudioSubsystem::DebugPrintDxSystem(FString msg, bool cacheMe)
 {
 	FString m = "[DIALOGUE] " + msg;
-	if (GEngine) {
+	if (GEngine)
+	{
 		GEngine->AddOnScreenDebugMessage(
 			-1,
 			0.5f,
 			FColor::White,
-			m
-		);
+			m);
 	}
 
-	if (cacheMe) {
+	if (cacheMe)
+	{
 		m_DebugCachedMsg = m;
 		m_CachedMsgTime = m_CachedMsgMaxTime;
 	}
@@ -678,13 +786,16 @@ void UAudioSubsystem::DebugPrintDxSystem(FString msg, bool cacheMe)
 void UAudioSubsystem::DebugPrintDialogueQueue(bool preventActive)
 {
 	FString msg = "";
-	if (m_CachedMsgTime > 0.f) {
+	if (m_CachedMsgTime > 0.f)
+	{
 		msg = m_DebugCachedMsg;
 	}
-	else {
+	else
+	{
 		msg = TEXT("Queue Size: ");
 		msg.Append(FString::FromInt(m_DialogueQueue.Num()));
-		if (preventActive) {
+		if (preventActive)
+		{
 			msg += " - PreventDialogue active";
 		}
 	}
@@ -695,17 +806,229 @@ void UAudioSubsystem::DebugPrintMusicSystem(FString msg, bool GameTime)
 {
 	FString m = "[MUSIC] " + msg;
 
-	if (GameTime) {
+	if (GameTime)
+	{
 		float gt = GetWorld()->GetTimeSeconds();
 		m = m + " at game time: " + (FString::SanitizeFloat(gt, 2));
 	}
 
-	if (GEngine) {
+	if (GEngine)
+	{
 		GEngine->AddOnScreenDebugMessage(
 			-1,
 			5.f,
 			FColor::Purple,
-			m
-		);
+			m);
 	}
+}
+
+
+
+
+void UAudioSubsystem::PlaySoundSequenceContainer2D(UObject* WorldContextObject, FSequenceContainer sounds, float vol, float pitch)
+{
+	if (sounds.sounds.Num() == 0) { return; };
+
+	int lastIndex = sounds.sounds.Num() - 1;
+
+	USoundBase* soundOne = sounds.sounds[0];
+	int* idx = m_SoundSequencesTracker.Find(soundOne);
+	int thisIndex = idx ? *idx : 0;
+
+	USoundBase* soundToPlay = sounds.sounds[thisIndex];
+	UGameplayStatics::PlaySound2D(WorldContextObject, soundToPlay, vol, pitch);
+	int nextIdx = thisIndex + 1;
+	if (nextIdx > lastIndex)
+	{
+		nextIdx = 0;
+	}
+	m_SoundSequencesTracker.Add(soundOne, nextIdx);
+}
+
+void UAudioSubsystem::ResetSequenceContainer(FSequenceContainer sounds)
+{
+	if (sounds.sounds.Num() == 0) { return; };
+
+	USoundBase* soundOne = sounds.sounds[0];
+	m_SoundSequencesTracker.Add(soundOne, 0);
+}
+
+void UAudioSubsystem::PlaySoundRandomContainer2D(UObject* WorldContextObject, FRandomContainer sounds, float vol, float pitch)
+{
+	USoundBase* soundOne = sounds.sounds[0];
+	if (!soundOne) { return; };
+
+	TArray<USoundBase*> validSounds;
+	bool firstTime = false;
+
+	// populate validSounds from the tracker map or make new entry if necessary
+	if (m_SoundRandomContainersTracker.Find(soundOne))
+	{
+		validSounds = m_SoundRandomContainersTracker[soundOne];
+	}
+	else
+	{
+		validSounds = sounds.sounds;
+		firstTime = true;
+		m_SoundRandomContainersTracker.Add({ soundOne, sounds.sounds });
+	}
+
+	// evaluate the shuffle playlist if set to shuffle
+	if (sounds.randomType == ERandomType::Shuffle)
+	{
+		if (m_SoundRandomContainersShuffleTracker.Find(soundOne))
+		{
+			for (int i = validSounds.Num() - 1; i > 0; i--)
+			{
+				USoundBase* soundToEvaluate = validSounds[i];
+				if (m_SoundRandomContainersShuffleTracker[soundOne].Find(soundToEvaluate) != -1)
+				{
+					validSounds.RemoveAt(i);
+				}
+			}
+
+			if (validSounds.IsEmpty())
+			{
+				validSounds = sounds.sounds;
+				m_SoundRandomContainersShuffleTracker[soundOne].Empty();
+			}
+		}
+	}
+
+	// remove last play from validSounds based on limitRepetitions value
+	if (!firstTime && sounds.limitRepetitions)
+	{
+		int limitRep = sounds.limitRepetitionsTo;
+		for (int i = 0; i < limitRep; i++)
+		{
+			validSounds.Pop();
+		}
+	}
+
+	// play random sound from remaining validSounds array
+	int idxChosen = FMath::RandRange(0, validSounds.Num());
+	USoundBase* soundChosen = sounds.sounds[idxChosen];
+	if (ensure(soundChosen))
+	{
+		UGameplayStatics::PlaySound2D(WorldContextObject, soundChosen, vol, pitch);
+		TArray<USoundBase*> containerHistory = m_SoundRandomContainersTracker[soundOne];
+		containerHistory.Remove(soundChosen);
+		containerHistory.Push(soundChosen);
+
+		if (sounds.randomType == ERandomType::Shuffle)
+		{
+			m_SoundRandomContainersShuffleTracker[soundOne].Push(soundChosen);
+		}
+	}
+}
+
+void UAudioSubsystem::PlaySound2DManaged(UObject* WorldContextObject, USoundBase* sound, float vol, float pitch, bool safe)
+{
+	if (!sound) { return; };
+
+	if (!safe)
+	{
+		UGameplayStatics::PlaySound2D(WorldContextObject, sound, vol, pitch);
+		return;
+	}
+
+	USoundBase* softRef(sound);
+	float* t = m_SafeSoundHistory.Find(softRef);
+	UWorld* w = GetWorld();
+	auto gt = w->GetRealTimeSeconds();
+
+	if (t)
+	{
+		if (gt - *t < m_SafeSoundThreshold)
+		{
+			return; // don't play, 
+		}
+	}
+
+	UGameplayStatics::PlaySound2D(WorldContextObject, sound, vol, pitch);
+	m_SafeSoundHistory.Add(softRef, gt);
+}
+
+void UAudioSubsystem::SpawnSound2DManaged(UObject* WorldContextObject, USoundBase* sound, float vol, float pitch, bool safe)
+{
+	if (!sound) { return; };
+
+	if (!safe)
+	{
+		UGameplayStatics::SpawnSound2D(WorldContextObject, sound, vol, pitch);
+		return;
+	}
+
+	USoundBase* softRef(sound);
+	float* t = m_SafeSoundHistory.Find(softRef);
+	UWorld* w = GetWorld();
+	auto gt = w->GetRealTimeSeconds();
+
+	if (t)
+	{
+		if (gt - *t < m_SafeSoundThreshold)
+		{
+			return; // don't play, 
+		}
+	}
+
+	UGameplayStatics::SpawnSound2D(WorldContextObject, sound, vol, pitch);
+	m_SafeSoundHistory.Add(softRef, gt);
+}
+
+void UAudioSubsystem::PlaySoundAtLocationManaged(UObject* WorldContextObject, USoundBase* sound, FVector location, float vol, float pitch, bool safe)
+{
+	if (!sound) { return; };
+
+	if (!safe)
+	{
+		UGameplayStatics::PlaySoundAtLocation(WorldContextObject, sound, location, vol, pitch);
+		return;
+	}
+
+	float* t = m_SafeSoundHistory.Find(sound);
+	UWorld* w = GetWorld();
+	auto gt = w->GetRealTimeSeconds();
+
+	if (t)
+	{
+		if (gt - *t < m_SafeSoundThreshold)
+		{
+			return; // don't play, 
+		}
+	}
+
+	UGameplayStatics::PlaySoundAtLocation(WorldContextObject, sound, location, vol, pitch);
+	m_SafeSoundHistory.Add(sound, gt);
+}
+
+void UAudioSubsystem::SpawnSoundAtLocationManaged(UObject* WorldContextObject, USoundBase* sound, FVector location, float vol, float pitch, bool safe)
+{
+	if (!sound) { return; };
+
+	if (!safe)
+	{
+		UGameplayStatics::SpawnSoundAtLocation(WorldContextObject, sound, location, FRotator{}, vol, pitch);
+		return;
+	}
+
+	float* t = m_SafeSoundHistory.Find(sound);
+	UWorld* w = GetWorld();
+	auto gt = w->GetRealTimeSeconds();
+
+	if (t)
+	{
+		if (gt - *t < m_SafeSoundThreshold)
+		{
+			return; // don't play, 
+		}
+	}
+
+	UGameplayStatics::SpawnSoundAtLocation(WorldContextObject, sound, location, FRotator{}, vol, pitch);
+	m_SafeSoundHistory.Add(sound, gt);
+}
+
+USoundBase* UAudioSubsystem::SequenceSFXParent(FRandomContainer sounds, float vol, float pitch)
+{
+	return nullptr;
 }

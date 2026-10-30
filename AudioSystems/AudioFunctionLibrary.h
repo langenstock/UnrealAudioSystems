@@ -7,9 +7,7 @@
 #include "AudioSubsystem.h"
 #include "AudioFunctionLibrary.generated.h"
 
-/**
- * 
- */
+
 UCLASS()
 class AUDIOSYSTEMS_API UAudioFunctionLibrary : public UBlueprintFunctionLibrary
 {

@@ -8,6 +8,7 @@
 #include "MetasoundSource.h"
 //#include "Plugins/Runtime/Metasound/Source/MetasoundEngine/Public/MetasoundSource.h"
 //#include "Metasound/Source/MetasoundEngine/Public/MetasoundSource.h"
+#include "Runtime/AudioExtensions/AudioParameterControllerInterface.h" // correct?
 #include "Sound/SoundBase.h"
 #include "Components/AudioComponent.h"
 #include "Engine/AssetManager.h"
@@ -168,6 +169,36 @@ struct F_2DAmbience
 	USoundBase* LoadedIntElement;
 };
 
+USTRUCT(BlueprintType)
+struct FSequenceContainer
+{
+	GENERATED_BODY()
+	UPROPERTY(EditAnywhere)
+	TArray<USoundBase*> sounds;
+};
+
+UENUM(BlueprintType)
+enum class ERandomType : uint8
+{
+	Standard, Shuffle
+};
+
+USTRUCT(BlueprintType)
+struct FRandomContainer
+{
+	GENERATED_BODY()
+	UPROPERTY(EditAnywhere)
+	TArray<USoundBase*> sounds;
+
+	UPROPERTY(EditAnywhere)
+	ERandomType randomType;
+
+	UPROPERTY(EditAnywhere)
+	bool limitRepetitions;
+
+	UPROPERTY(EditAnywhere)
+	int limitRepetitionsTo;
+};
 
 UCLASS()
 class AUDIOSYSTEMS_API UAudioSubsystem : public UGameInstanceSubsystem,
@@ -199,7 +230,6 @@ protected:
 
 protected:
 	TArray<FDialogueLine> m_DialogueQueue;
-	//TDeque<FDialogueLine> m_DialogueQueue;
 	TArray<FDialogueLine> m_DialogueDelayQueue; // Not necessarily first in first out as it depends on PlayDelay
 	TMap<USoundBase*, FDialogueLine> m_DialogueHistory;
 
@@ -228,6 +258,15 @@ protected:
 	void PlayNewMusic(FMusicTrack Track, USoundBase* LoadedSound);
 	void DebugPrintMusicSystem(FString msg, bool GameTime);
 
+	UFUNCTION(BlueprintCallable)
+	void LoadAndPlayNewMusic(FMusicTrack Track);
+
+	UFUNCTION(BlueprintCallable)
+	void CurrentMusicTriggerParameter(FString parameter);
+
+	UFUNCTION(BlueprintCallable)
+	void CurrentMusicTriggerFloatParameter(FString parameter, float value);
+
 
 	///// Ambience /////
 
@@ -238,8 +277,21 @@ protected:
 
 	void PlayNewAmbience(F_2DAmbience ambience, USoundBase* Sound);
 
-	bool m_DEBUG_DIALOGUE = true;
-	bool m_DEBUG_MUSIC = true;
+
+
+	TMap<ETag, F_2DAmbience> m_AmbienceMap;
+
+	UFUNCTION(BlueprintCallable)
+	void EvaluateAmbienceMap(ETag tag);
+
+	UFUNCTION(BlueprintCallable)
+	void LoadNewAmbience(F_2DAmbience ambience);
+
+	UFUNCTION(BlueprintCallable)
+	F_2DAmbience& GetCurrentlyPlayingAmbience();
+
+	UFUNCTION(BlueprintCallable)
+	void StopAllAmbience(float fadeTime, EAudioFaderCurve curve);
 
 public:
 
@@ -285,20 +337,43 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void StopMusic(float fadeTime, EAudioFaderCurve curveType);
 
+/// SFX ///
+
+public:
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	void PlaySoundSequenceContainer2D(UObject* WorldContextObject, FSequenceContainer sounds, float vol = 1.f, float pitch = 1.f);
+
+	UFUNCTION(BlueprintCallable)
+	void ResetSequenceContainer(FSequenceContainer sounds);
+
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	void PlaySoundRandomContainer2D(UObject* WorldContextObject, FRandomContainer sounds, float vol = 1.f, float pitch = 1.f);
+
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	void PlaySound2DManaged(UObject* WorldContextObject, USoundBase* sound, float vol = 1.f, float pitch = 1.f, bool safe = false);
+
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	void SpawnSound2DManaged(UObject* WorldContextObject, USoundBase* sound, float vol = 1.f, float pitch = 1.f, bool safe = false);
+
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	void PlaySoundAtLocationManaged(UObject* WorldContextObject, USoundBase* sound, FVector location, float vol = 1.f, float pitch = 1.f, bool safe = false);
+
+	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
+	void SpawnSoundAtLocationManaged(UObject* WorldContextObject, USoundBase* sound, FVector location, float vol = 1.f, float pitch = 1.f, bool safe = false);
+private:
+
+	USoundBase* SequenceSFXParent(FRandomContainer sounds, float vol = 1.f, float pitch = 1.f);
+
+	TMap<USoundBase*, float> m_SafeSoundHistory;
+	float m_SafeSoundThreshold = 0.02f;
+
+	TMap<USoundBase*, int> m_SoundSequencesTracker;
+	//TArray<FSequenceContainer> m_TrackedSequences; // TODO DL delete if unused
+
+	TMap<USoundBase*, TArray<USoundBase*>> m_SoundRandomContainersTracker;
+	TMap<USoundBase*, TArray<USoundBase*>> m_SoundRandomContainersShuffleTracker;
+
 protected:
-
-	///// Ambience /////
-	TMap<ETag, F_2DAmbience> m_AmbienceMap;
-
-	UFUNCTION(BlueprintCallable)
-	void EvaluateAmbienceMap(ETag tag);
-
-	UFUNCTION(BlueprintCallable)
-	void LoadNewAmbience(F_2DAmbience ambience);
-
-	UFUNCTION(BlueprintCallable)
-	F_2DAmbience& GetCurrentlyPlayingAmbience();
-
-	UFUNCTION(BlueprintCallable)
-	void StopAllAmbience(float fadeTime, EAudioFaderCurve curve);
+	bool m_DEBUG_DIALOGUE = true;
+	bool m_DEBUG_MUSIC = true;
 };
